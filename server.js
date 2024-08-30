@@ -1,6 +1,7 @@
 const express = require('express');
 const path = require('path');
 const fs = require('fs');
+const { exec } = require('child_process');
 
 const app = express();
 const PORT = 3000;
@@ -17,22 +18,22 @@ app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-app.get('/photos', (req, res) => {
-    const today = new Date();
-    const day = today.getDate();
-    const month = today.toLocaleString('default', { month: 'short' }).toUpperCase();
-    const year = today.getFullYear();
-    const folderName = `${day}${month}${year}`;
+// Run the downloadPhotos.js script when the server starts
+exec('node downloadPhotos.js', (err, stdout, stderr) => {
+    if (err) {
+        console.error(`Error running downloadPhotos.js: ${err}`);
+        return;
+    }
+    console.log(stdout);
+});
 
-    const photoDirectory = path.join(photoBasePath, folderName);
-
-    fs.readdir(photoDirectory, (err, files) => {
+// API route to trigger photo download manually (optional)
+app.get('/download-photos', (req, res) => {
+    exec('node downloadPhotos.js', (err, stdout, stderr) => {
         if (err) {
-            return res.status(500).send('Unable to scan directory: ' + err);
+            return res.status(500).send(`Error running downloadPhotos.js: ${err}`);
         }
-
-        const photos = files.map(file => `/photos/${folderName}/${file}`);
-        res.json(photos);
+        res.send(`Photos downloaded successfully:\n${stdout}`);
     });
 });
 
