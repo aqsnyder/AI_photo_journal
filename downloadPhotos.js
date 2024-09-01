@@ -1,6 +1,5 @@
 const fs = require('fs');
 const path = require('path');
-const readline = require('readline');
 const { google } = require('googleapis');
 const http = require('http');
 const url = require('url');
@@ -15,22 +14,14 @@ const PORT = 8080;
 
 async function authorize() {
     const credentials = JSON.parse(fs.readFileSync(CREDENTIALS_PATH, 'utf-8'));
-    const { client_secret, client_id, redirect_uris } = credentials.web; // Use 'web' key for web application
-
-    // Initialize the OAuth2 client with the credentials and redirect URI
-    // const oAuth2Client = new google.auth.OAuth2(
-    //     client_id,
-    //     client_secret,
-    //     `http://localhost:${PORT}/oauth2callback`  // Ensure this matches your Google Cloud Console configuration
-    // );
+    const { client_secret, client_id, redirect_uris } = credentials.web;
 
     const oAuth2Client = new google.auth.OAuth2(
         client_id,
         client_secret,
-        'http://localhost:8080/oauth2callback'  // This should match the redirect URI in the console
+        `http://localhost:${PORT}/oauth2callback`
     );
-    
-    // Check if we have previously stored a token.
+
     if (fs.existsSync(TOKEN_PATH)) {
         oAuth2Client.setCredentials(JSON.parse(fs.readFileSync(TOKEN_PATH, 'utf-8')));
     } else {
@@ -50,8 +41,6 @@ function getAccessToken(oAuth2Client) {
         });
         console.log('Authorize this app by visiting this URL:', authUrl);
 
-        const PORT = 8080;  // Ensure this is set to 8080
-
         const server = http.createServer(async (req, res) => {
             if (req.url.indexOf('/oauth2callback') > -1) {
                 const qs = new url.URL(req.url, `http://localhost:${PORT}`).searchParams;
@@ -63,50 +52,73 @@ function getAccessToken(oAuth2Client) {
             }
         }).listen(PORT, () => {
             console.log(`Listening on port ${PORT} for the OAuth callback...`);
-        });        
+        });
     });
 }
 
 async function downloadPhotos() {
     const auth = await authorize();
-    const photoslibrary = google.photoslibrary({ version: 'v1', auth });
+    
+    // Initialize the Google Photos Library API client correctly
+    const photoslibrary = google.photoslibrary({
+        version: 'v1',
+        auth: auth,
+    });
 
     const today = new Date();
     const day = String(today.getDate()).padStart(2, '0');
     const month = String(today.getMonth() + 1).padStart(2, '0');
     const year = today.getFullYear();
 
-    const response = await photoslibrary.mediaItems.search({
-        requestBody: {
-            filters: {
-                dateFilter: {
-                    dates: [{ year: parseInt(year), month: parseInt(month), day: parseInt(day) }],
+    try {
+        const response = await photoslibrary.mediaItems.search({
+            requestBody: {
+                filters: {
+                    dateFilter: {
+                        dates: [{ year: parseInt(year), month: parseInt(month), day: parseInt(day) }],
+                    },
                 },
             },
-        },
-    });
+        });
 
-    const items = response.data.mediaItems;
-    if (!items || items.length === 0) {
-        console.log('No photos found.');
-        return;
+        const items = response.data.mediaItems;
+        if (!items || items.length === 0) {
+            console.log('No photos found.');
+            return;
+        }
+
+        const downloadDir = path.join('C:', 'Users', 'Aaron', 'OneDrive', 'Pictures', 'journal_photos', `${day}${month}${year}`);
+        
+        // Ensure directory exists
+        if (!fs.existsSync(downloadDir)){
+            fs.mkdirSync(downloadDir, { recursive: true });
+        }
+
+        items.forEach(item => {
+            const photoUrl = item.baseUrl + '=d';
+            const filePath = path.join(downloadDir, `${item.id}.jpg`);
+            download(photoUrl, filePath);
+        });
+
+    } catch (error) {
+        console.error('Error fetching photos:', error.message);
     }
-
-    items.forEach(item => {
-        const photoUrl = item.baseUrl + '=d';
-        const filePath = path.join('C:', 'Users', 'Aaron', 'OneDrive', 'Pictures', 'journal_photos', `${day}${month}${year}`, `${item.id}.jpg`);
-        download(photoUrl, filePath);
-    });
 }
 
-function download(url, filePath) {
+function download(photoUrl, filePath) {
     const file = fs.createWriteStream(filePath);
-    require('https').get(url, function(response) {
+    require('https').get(photoUrl, function(response) {
+        if (response.statusCode !== 200) {
+            console.error('Download failed:', response.statusCode, response.statusMessage);
+            return;
+        }
         response.pipe(file);
         file.on('finish', function() {
             file.close();
             console.log('Downloaded:', filePath);
         });
+    }).on('error', (err) => {
+        console.error('Error during download:', err.message);
     });
 }
 
