@@ -62,18 +62,45 @@ async function downloadPhotos() {
     
     const accessToken = auth.credentials.access_token;
 
+    // Get today's date
+    const today = new Date();
+
+    // Start and end time for the day
+    const startDateTime = new Date(today.getFullYear(), today.getMonth(), today.getDate()).toISOString(); // Start of the day
+    const endDateTime = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1).toISOString(); // Start of the next day
+
+    console.log('Using date range filter:', startDateTime, 'to', endDateTime);
+
     const params = {
-        pageSize: 10, // Adjust this to the number of photos you want to download
+        pageSize: 50,
+        filters: {
+            dateFilter: {
+                ranges: [
+                    {
+                        startDate: {
+                            year: today.getFullYear(),
+                            month: today.getMonth() + 1,
+                            day: today.getDate()
+                        },
+                        endDate: {
+                            year: today.getFullYear(),
+                            month: today.getMonth() + 1,
+                            day: today.getDate() + 1
+                        }
+                    }
+                ]
+            }
+        }
     };
 
     const axioConfig = {
-        method: 'get',
-        url: 'https://photoslibrary.googleapis.com/v1/mediaItems',
+        method: 'post',
+        url: 'https://photoslibrary.googleapis.com/v1/mediaItems:search',
         headers: {
             authorization: `Bearer ${accessToken}`,
             'Content-Type': 'application/json',
         },
-        params: params,
+        data: params,
     };
 
     try {
@@ -81,38 +108,48 @@ async function downloadPhotos() {
         const mediaItems = response.data.mediaItems;
 
         if (!mediaItems || mediaItems.length === 0) {
-            console.log('No photos found.');
+            console.log('No photos found for today.');
             return;
         }
 
-        // Specify the directory to save the photos
-        const downloadDir = path.join('C:', 'Users', 'Aaron', 'OneDrive', 'Pictures', 'journal_photos');
+        const downloadDir = path.join('C:', 'Users', 'Aaron', 'OneDrive', 'Pictures', 'journal_photos', `${String(today.getDate()).padStart(2, '0')}${String(today.getMonth() + 1).padStart(2, '0')}${today.getFullYear()}`);
 
-        // Ensure the directory exists
         if (!fs.existsSync(downloadDir)) {
             fs.mkdirSync(downloadDir, { recursive: true });
         }
 
-        // Download each photo and print the creation date
         for (const item of mediaItems) {
             const photoUrl = `${item.baseUrl}=d`;  // Appending `=d` to get the download URL
             const filePath = path.join(downloadDir, item.filename || `${item.id}.jpg`);
-
-            // Print the creation date of the photo
-            if (item.mediaMetadata && item.mediaMetadata.creationTime) {
-                console.log(`Downloading ${item.filename} created on: ${item.mediaMetadata.creationTime}`);
-            } else {
-                console.log(`Downloading ${item.filename} (creation date not available)`);
-            }
-
             await downloadPhoto(photoUrl, filePath);
         }
 
+        console.log(`Downloaded ${mediaItems.length} photos to ${downloadDir}`);
+
     } catch (error) {
         console.error('Error fetching photos:', error.message);
+        console.error('Error details:', error.response?.data || error);
     }
 }
 
+async function downloadPhoto(photoUrl, filePath) {
+    try {
+        const response = await axios({
+            url: photoUrl,
+            method: 'GET',
+            responseType: 'stream',
+        });
+
+        return new Promise((resolve, reject) => {
+            const writer = fs.createWriteStream(filePath);
+            response.data.pipe(writer);
+            writer.on('finish', resolve);
+            writer.on('error', reject);
+        });
+    } catch (error) {
+        console.error(`Error downloading ${filePath}:`, error.message);
+    }
+}
 async function downloadPhoto(photoUrl, filePath) {
     try {
         const response = await axios({

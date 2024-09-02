@@ -59,47 +59,23 @@ function getAccessToken(oAuth2Client) {
 
 async function downloadPhotos() {
     const auth = await authorize();
-    
     const accessToken = auth.credentials.access_token;
 
     // Get today's date
     const today = new Date();
+    const year = today.getFullYear();
+    const month = today.getMonth() + 1; // JS months are 0-indexed
+    const day = today.getDate();
 
-    const currentDay = {
-        year: today.getFullYear(),
-        month: today.getMonth() + 1, // months are 0-indexed in JavaScript
-        day: today.getDate()
-    };
-
-    console.log('Using date filter for:', currentDay);
-
-    // Create a folder for today's date (e.g., 01092024)
-    const folderName = `${String(today.getDate()).padStart(2, '0')}${String(today.getMonth() + 1).padStart(2, '0')}${today.getFullYear()}`;
-    const downloadDir = path.join('C:', 'Users', 'Aaron', 'OneDrive', 'Pictures', 'journal_photos', folderName);
-
-    // Ensure the directory exists
-    if (!fs.existsSync(downloadDir)) {
-        fs.mkdirSync(downloadDir, { recursive: true });
-    }
-
-    // Set date filter to retrieve photos from today
-    const params = {
-        pageSize: 50, // Adjust as needed
-        filters: {
-            dateFilter: {
-                dates: [currentDay]
-            }
-        }
-    };
+    console.log(`Using date filter for: ${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`);
 
     const axioConfig = {
-        method: 'post',
-        url: 'https://photoslibrary.googleapis.com/v1/mediaItems:search',
+        method: 'get',
+        url: 'https://photoslibrary.googleapis.com/v1/mediaItems',
         headers: {
             authorization: `Bearer ${accessToken}`,
             'Content-Type': 'application/json',
-        },
-        data: params,
+        }
     };
 
     try {
@@ -107,18 +83,36 @@ async function downloadPhotos() {
         const mediaItems = response.data.mediaItems;
 
         if (!mediaItems || mediaItems.length === 0) {
+            console.log('No photos found.');
+            return;
+        }
+
+        const downloadDir = path.join('C:', 'Users', 'Aaron', 'OneDrive', 'Pictures', 'journal_photos', `${String(day).padStart(2, '0')}${String(month).padStart(2, '0')}${year}`);
+
+        if (!fs.existsSync(downloadDir)) {
+            fs.mkdirSync(downloadDir, { recursive: true });
+        }
+
+        // Filter photos by today's date
+        const filteredItems = mediaItems.filter(item => {
+            const creationTime = new Date(item.mediaMetadata.creationTime);
+            return creationTime.getFullYear() === year &&
+                creationTime.getMonth() + 1 === month &&
+                creationTime.getDate() === day;
+        });
+
+        if (filteredItems.length === 0) {
             console.log('No photos found for today.');
             return;
         }
 
-        // Download each photo
-        for (const item of mediaItems) {
+        for (const item of filteredItems) {
             const photoUrl = `${item.baseUrl}=d`;  // Appending `=d` to get the download URL
             const filePath = path.join(downloadDir, item.filename || `${item.id}.jpg`);
             await downloadPhoto(photoUrl, filePath);
         }
 
-        console.log(`Downloaded ${mediaItems.length} photos to ${downloadDir}`);
+        console.log(`Downloaded ${filteredItems.length} photos to ${downloadDir}`);
 
     } catch (error) {
         console.error('Error fetching photos:', error.message);
