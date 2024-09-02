@@ -1,16 +1,23 @@
+// Load environment variables from .env file
+require('dotenv').config();
+
 const express = require('express');
 const path = require('path');
 const fs = require('fs');
 const { exec } = require('child_process');
+const bodyParser = require('body-parser');
 
 const app = express();
-const PORT = 8080;
+const PORT = process.env.PORT || 8080;
+
+// Middleware to parse JSON requests
+app.use(bodyParser.json());
 
 // Serve static files from the "public" directory
 app.use(express.static('public'));
 
-// Serve the photos directory
-const photoBasePath = path.join('C:', 'Users', 'Aaron', 'OneDrive', 'Pictures', 'journal_photos');
+// Serve the photos directory using the path from environment variables
+const photoBasePath = process.env.PHOTO_STORAGE_PATH || path.join(__dirname, 'photos');
 app.use('/photos', express.static(photoBasePath));
 
 // Route to serve the index.html file
@@ -20,7 +27,6 @@ app.get('/', (req, res) => {
 
 // Route to get the list of photo URLs
 app.get('/photos', (req, res) => {
-    // Read the latest photos folder based on today's date
     const today = new Date();
     const folderName = `${String(today.getDate()).padStart(2, '0')}${String(today.getMonth() + 1).padStart(2, '0')}${today.getFullYear()}`;
     const photoDir = path.join(photoBasePath, folderName);
@@ -40,10 +46,34 @@ app.get('/photos', (req, res) => {
 
         console.log('Files found:', files);
 
-        // Map files to their URLs
         const photoUrls = files.map(file => `/photos/${folderName}/${file}`);
         res.json(photoUrls);
     });
+});
+
+// Path to store the journal entry
+const journalFilePath = path.join(__dirname, 'journal.json');
+
+// Route to save the journal entry
+app.post('/journal-entry', (req, res) => {
+    const { entry } = req.body;
+    fs.writeFile(journalFilePath, JSON.stringify({ entry }), err => {
+        if (err) {
+            console.error('Failed to save journal entry', err);
+            return res.status(500).json({ error: 'Failed to save journal entry' });
+        }
+        res.json({ message: 'Journal entry saved' });
+    });
+});
+
+// Route to load the journal entry
+app.get('/journal-entry', (req, res) => {
+    if (fs.existsSync(journalFilePath)) {
+        const data = JSON.parse(fs.readFileSync(journalFilePath, 'utf-8'));
+        res.json(data);
+    } else {
+        res.json({ entry: '' });
+    }
 });
 
 // Run the downloadPhotos.js script when the server starts
@@ -57,5 +87,4 @@ exec('node downloadPhotos.js', (err, stdout, stderr) => {
 
 app.listen(PORT, () => {
     console.log(`Server is running on http://localhost:${PORT}`);
-    console.log(`Serving photos from: ${photoBasePath}`);
 });
