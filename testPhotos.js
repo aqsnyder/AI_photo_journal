@@ -62,44 +62,18 @@ async function downloadPhotos() {
     
     const accessToken = auth.credentials.access_token;
 
-    // Get today's date
-    const today = new Date();
-
-    const currentDay = {
-        year: today.getFullYear(),
-        month: today.getMonth() + 1, // months are 0-indexed in JavaScript
-        day: today.getDate()
-    };
-
-    console.log('Using date filter for:', currentDay);
-
-    // Create a folder for today's date (e.g., 01092024)
-    const folderName = `${String(today.getDate()).padStart(2, '0')}${String(today.getMonth() + 1).padStart(2, '0')}${today.getFullYear()}`;
-    const downloadDir = path.join('C:', 'Users', 'Aaron', 'OneDrive', 'Pictures', 'journal_photos', folderName);
-
-    // Ensure the directory exists
-    if (!fs.existsSync(downloadDir)) {
-        fs.mkdirSync(downloadDir, { recursive: true });
-    }
-
-    // Set date filter to retrieve photos from today
     const params = {
-        pageSize: 50, // Adjust as needed
-        filters: {
-            dateFilter: {
-                dates: [currentDay]
-            }
-        }
+        pageSize: 10, // Adjust this to the number of photos you want to download
     };
 
     const axioConfig = {
-        method: 'post',
-        url: 'https://photoslibrary.googleapis.com/v1/mediaItems:search',
+        method: 'get',
+        url: 'https://photoslibrary.googleapis.com/v1/mediaItems',
         headers: {
             authorization: `Bearer ${accessToken}`,
             'Content-Type': 'application/json',
         },
-        data: params,
+        params: params,
     };
 
     try {
@@ -107,22 +81,35 @@ async function downloadPhotos() {
         const mediaItems = response.data.mediaItems;
 
         if (!mediaItems || mediaItems.length === 0) {
-            console.log('No photos found for today.');
+            console.log('No photos found.');
             return;
         }
 
-        // Download each photo
+        // Specify the directory to save the photos
+        const downloadDir = path.join('C:', 'Users', 'Aaron', 'OneDrive', 'Pictures', 'journal_photos');
+
+        // Ensure the directory exists
+        if (!fs.existsSync(downloadDir)) {
+            fs.mkdirSync(downloadDir, { recursive: true });
+        }
+
+        // Download each photo and print the creation date
         for (const item of mediaItems) {
             const photoUrl = `${item.baseUrl}=d`;  // Appending `=d` to get the download URL
             const filePath = path.join(downloadDir, item.filename || `${item.id}.jpg`);
+
+            // Print the creation date of the photo
+            if (item.mediaMetadata && item.mediaMetadata.creationTime) {
+                console.log(`Downloading ${item.filename} created on: ${item.mediaMetadata.creationTime}`);
+            } else {
+                console.log(`Downloading ${item.filename} (creation date not available)`);
+            }
+
             await downloadPhoto(photoUrl, filePath);
         }
 
-        console.log(`Downloaded ${mediaItems.length} photos to ${downloadDir}`);
-
     } catch (error) {
         console.error('Error fetching photos:', error.message);
-        console.error('Error details:', error.response?.data || error);
     }
 }
 
