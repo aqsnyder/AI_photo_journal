@@ -11,6 +11,7 @@ app.use(express.static('public'));
 
 // Serve the photos directory
 const photoBasePath = path.join('C:', 'Users', 'Aaron', 'OneDrive', 'Pictures', 'journal_photos');
+app.use('/photos', express.static(photoBasePath));
 
 // Route to serve the index.html file
 app.get('/', (req, res) => {
@@ -56,4 +57,5 @@ exec('node downloadPhotos.js', (err, stdout, stderr) => {
 
 app.listen(PORT, () => {
     console.log(`Server is running on http://localhost:${PORT}`);
+    console.log(`Serving photos from: ${photoBasePath}`);
 });
