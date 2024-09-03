@@ -3,7 +3,7 @@ const path = require('path');
 const fs = require('fs');
 const { exec } = require('child_process');
 const bodyParser = require('body-parser');
-
+const { Pool } = require('pg');  // PostgreSQL client
 
 require('dotenv').config(); // Load environment variables from .env file
 
@@ -15,39 +15,60 @@ app.use(bodyParser.json());
 // Serve static files from the "public" directory
 app.use(express.static('public'));
 
-// Serve the photos directory
-const photoBasePath = process.env.DOWNLOAD_DIR_BASE || path.join(__dirname, 'photos');
-app.use('/photos', express.static(photoBasePath));
+// PostgreSQL setup
+const pool = new Pool({
+    user: process.env.PGUSER,
+    host: process.env.PGHOST,
+    database: process.env.PGDATABASE,
+    password: process.env.PGPASSWORD,
+    port: process.env.PGPORT,
+});
 
 // Route to serve the index.html file
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// Route to get the list of photo URLs
-app.get('/photos', (req, res) => {
-    const today = new Date();
-    const folderName = `${String(today.getDate()).padStart(2, '0')}${String(today.getMonth() + 1).padStart(2, '0')}${today.getFullYear()}`;
-    const photoDir = path.join(photoBasePath, folderName);
+// Route to get the list of photo URLs from the database
+app.get('/photos', async (req, res) => {
+    try {
+        const today = new Date();
+        const formattedDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
 
-    console.log(`Looking for photos in directory: ${photoDir}`);
+        const result = await pool.query('SELECT * FROM journal_images WHERE created_at::date = $1', [formattedDate]);
 
-    if (!fs.existsSync(photoDir)) {
-        console.log('Directory does not exist');
-        return res.json([]);  // Return an empty array if the directory doesn't exist
+        const photoUrls = result.rows.map(row => `/photos/${row.id}`);
+
+        res.json(photoUrls);
+    } catch (err) {
+        console.error('Failed to retrieve photos:', err);
+        res.status(500).json({ error: 'Failed to retrieve photos' });
     }
+});
 
-    fs.readdir(photoDir, (err, files) => {
-        if (err) {
-            console.log('Failed to read photos directory', err);
-            return res.status(500).json({ error: 'Failed to read photos directory' });
+// Route to get a specific photo by ID
+app.get('/photos/:id', async (req, res) => {
+    const { id } = req.params;
+
+    try {
+        const result = await pool.query('SELECT * FROM journal_images WHERE id = $1', [id]);
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'Photo not found' });
         }
 
-        console.log('Files found:', files);
+        const photo = result.rows[0];
 
-        const photoUrls = files.map(file => `/photos/${folderName}/${file}`);
-        res.json(photoUrls);
-    });
+        res.writeHead(200, {
+            'Content-Type': 'image/jpeg',
+            'Content-Length': photo.image_data.length,
+        });
+
+        res.end(photo.image_data);
+    } catch (err) {
+        console.error('Failed to retrieve photo:', err);
+        res.status(500).json({ error: 'Failed to retrieve photo' });
+    }
 });
 
 // Path to store the journal entry
@@ -76,12 +97,36 @@ app.get('/journal-entry', (req, res) => {
 });
 
 // Run the downloadPhotos.js script when the server starts
-exec('node downloadPhotos.js', (err, stdout, stderr) => {
+exec('node downloadPhotos.js', async (err, stdout, stderr) => {
     if (err) {
         console.error(`Error running downloadPhotos.js: ${err}`);
         return;
     }
     console.log(stdout);
+
+    // After downloading photos, store them in the database
+    const today = new Date();
+    const folderName = `${String(today.getDate()).padStart(2, '0')}${String(today.getMonth() + 1).padStart(2, '0')}${today.getFullYear()}`;
+    const photoDir = path.join(photoBasePath, folderName);
+
+    if (fs.existsSync(photoDir)) {
+        const files = fs.readdirSync(photoDir);
+
+        for (const file of files) {
+            const filePath = path.join(photoDir, file);
+            const imageData = fs.readFileSync(filePath);
+            const imageName = file;
+
+            try {
+                await pool.query(
+                    'INSERT INTO journal_images (image_data, image_name, created_at) VALUES ($1, $2, NOW())',
+                    [imageData, imageName]
+                );
+            } catch (err) {
+                console.error('Failed to save image to database:', err);
+            }
+        }
+    }
 });
 
 app.listen(PORT, () => {

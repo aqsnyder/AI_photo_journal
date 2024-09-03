@@ -5,13 +5,22 @@ const axios = require('axios');
 const { google } = require('googleapis');
 const http = require('http');
 const url = require('url');
+const { Pool } = require('pg');  // PostgreSQL client
 
 // Load configurations from environment variables
 const CREDENTIALS_PATH = path.join(__dirname, process.env.CREDENTIALS_PATH || 'credentials.json');
 const TOKEN_PATH = path.join(__dirname, process.env.TOKEN_PATH || 'token.json');
 const SCOPES = process.env.SCOPES ? process.env.SCOPES.split(',') : ['https://www.googleapis.com/auth/photoslibrary.readonly'];
 const PORT = process.env.PORT || 8080;
-const DOWNLOAD_DIR_BASE = process.env.DOWNLOAD_DIR_BASE || 'C:/Users/Aaron/OneDrive/Pictures/journal_photos';
+
+// PostgreSQL setup
+const pool = new Pool({
+    user: process.env.PGUSER,
+    host: process.env.PGHOST,
+    database: process.env.PGDATABASE,
+    password: process.env.PGPASSWORD,
+    port: process.env.PGPORT,
+});
 
 async function authorize() {
     const credentials = JSON.parse(fs.readFileSync(CREDENTIALS_PATH, 'utf-8'));
@@ -87,12 +96,6 @@ async function downloadPhotos() {
             return;
         }
 
-        const downloadDir = path.join(DOWNLOAD_DIR_BASE, `${String(day).padStart(2, '0')}${String(month).padStart(2, '0')}${year}`);
-
-        if (!fs.existsSync(downloadDir)) {
-            fs.mkdirSync(downloadDir, { recursive: true });
-        }
-
         // Filter photos by today's date
         const filteredItems = mediaItems.filter(item => {
             const creationTime = new Date(item.mediaMetadata.creationTime);
@@ -108,11 +111,16 @@ async function downloadPhotos() {
 
         for (const item of filteredItems) {
             const photoUrl = `${item.baseUrl}=d`;  // Appending `=d` to get the download URL
-            const filePath = path.join(downloadDir, item.filename || `${item.id}.jpg`);
-            await downloadPhoto(photoUrl, filePath);
+            const imageName = item.filename || `${item.id}.jpg`;
+            const imageData = await downloadPhoto(photoUrl);
+
+            await pool.query(
+                'INSERT INTO journal_images (image_data, image_name, created_at) VALUES ($1, $2, NOW())',
+                [imageData, imageName]
+            );
         }
 
-        console.log(`Downloaded ${filteredItems.length} photos to ${downloadDir}`);
+        console.log(`Downloaded and stored ${filteredItems.length} photos to the database.`);
 
     } catch (error) {
         console.error('Error fetching photos:', error.message);
@@ -120,22 +128,17 @@ async function downloadPhotos() {
     }
 }
 
-async function downloadPhoto(photoUrl, filePath) {
+async function downloadPhoto(photoUrl) {
     try {
         const response = await axios({
             url: photoUrl,
             method: 'GET',
-            responseType: 'stream',
+            responseType: 'arraybuffer',
         });
-
-        return new Promise((resolve, reject) => {
-            const writer = fs.createWriteStream(filePath);
-            response.data.pipe(writer);
-            writer.on('finish', resolve);
-            writer.on('error', reject);
-        });
+        return response.data;
     } catch (error) {
-        console.error(`Error downloading ${filePath}:`, error.message);
+        console.error(`Error downloading photo:`, error.message);
+        return null;
     }
 }
 
