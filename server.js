@@ -1,23 +1,20 @@
-// Load environment variables from .env file
-require('dotenv').config();
-
 const express = require('express');
 const path = require('path');
 const fs = require('fs');
 const { exec } = require('child_process');
 const bodyParser = require('body-parser');
+require('dotenv').config(); // Load environment variables from .env file
 
 const app = express();
 const PORT = process.env.PORT || 8080;
 
-// Middleware to parse JSON requests
 app.use(bodyParser.json());
 
 // Serve static files from the "public" directory
 app.use(express.static('public'));
 
-// Serve the photos directory using the path from environment variables
-const photoBasePath = process.env.PHOTO_STORAGE_PATH || path.join(__dirname, 'photos');
+// Serve the photos directory
+const photoBasePath = process.env.DOWNLOAD_DIR_BASE || path.join(__dirname, 'photos');
 app.use('/photos', express.static(photoBasePath));
 
 // Route to serve the index.html file

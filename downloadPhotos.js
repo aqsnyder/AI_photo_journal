@@ -1,3 +1,4 @@
+require('dotenv').config();  // Load environment variables from .env file
 const fs = require('fs');
 const path = require('path');
 const axios = require('axios');
@@ -5,13 +6,12 @@ const { google } = require('googleapis');
 const http = require('http');
 const url = require('url');
 
-// Path to your credentials JSON file
-const CREDENTIALS_PATH = path.join(__dirname, 'credentials.json');
-const TOKEN_PATH = path.join(__dirname, 'token.json');
-const SCOPES = ['https://www.googleapis.com/auth/photoslibrary.readonly'];
-
-// Port number where the server will listen
-const PORT = 8080;
+// Load configurations from environment variables
+const CREDENTIALS_PATH = path.join(__dirname, process.env.CREDENTIALS_PATH || 'credentials.json');
+const TOKEN_PATH = path.join(__dirname, process.env.TOKEN_PATH || 'token.json');
+const SCOPES = process.env.SCOPES ? process.env.SCOPES.split(',') : ['https://www.googleapis.com/auth/photoslibrary.readonly'];
+const PORT = process.env.PORT || 8080;
+const DOWNLOAD_DIR_BASE = process.env.DOWNLOAD_DIR_BASE || 'C:/Users/Aaron/OneDrive/Pictures/journal_photos';
 
 async function authorize() {
     const credentials = JSON.parse(fs.readFileSync(CREDENTIALS_PATH, 'utf-8'));
@@ -87,7 +87,7 @@ async function downloadPhotos() {
             return;
         }
 
-        const downloadDir = path.join('C:', 'Users', 'Aaron', 'OneDrive', 'Pictures', 'journal_photos', `${String(day).padStart(2, '0')}${String(month).padStart(2, '0')}${year}`);
+        const downloadDir = path.join(DOWNLOAD_DIR_BASE, `${String(day).padStart(2, '0')}${String(month).padStart(2, '0')}${year}`);
 
         if (!fs.existsSync(downloadDir)) {
             fs.mkdirSync(downloadDir, { recursive: true });
