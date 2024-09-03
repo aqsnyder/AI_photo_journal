@@ -22,39 +22,44 @@ app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// Route to get the list of photo URLs
-app.get('/photos', (req, res) => {
-    const today = new Date();
-    const folderName = `${String(today.getDate()).padStart(2, '0')}${String(today.getMonth() + 1).padStart(2, '0')}${today.getFullYear()}`;
-    const photoDir = path.join(photoBasePath, folderName);
+// Route to get the list of photo URLs and journal entries for all days
+app.get('/journal-entries', (req, res) => {
+    const entries = [];
 
-    console.log(`Looking for photos in directory: ${photoDir}`);
-
-    if (!fs.existsSync(photoDir)) {
-        console.log('Directory does not exist');
-        return res.json([]);  // Return an empty array if the directory doesn't exist
-    }
-
-    fs.readdir(photoDir, (err, files) => {
+    fs.readdir(photoBasePath, (err, folders) => {
         if (err) {
-            console.log('Failed to read photos directory', err);
-            return res.status(500).json({ error: 'Failed to read photos directory' });
+            console.log('Failed to read photos base directory', err);
+            return res.status(500).json({ error: 'Failed to read photos base directory' });
         }
 
-        console.log('Files found:', files);
+        folders.forEach(folderName => {
+            const photoDir = path.join(photoBasePath, folderName);
+            const journalFilePath = path.join(photoDir, 'journal.json');
+            const photos = fs.readdirSync(photoDir).filter(file => file !== 'journal.json').map(file => `/photos/${folderName}/${file}`);
 
-        const photoUrls = files.map(file => `/photos/${folderName}/${file}`);
-        res.json(photoUrls);
+            let journalEntry = '';
+            if (fs.existsSync(journalFilePath)) {
+                journalEntry = JSON.parse(fs.readFileSync(journalFilePath, 'utf-8')).entry;
+            }
+
+            entries.push({
+                date: formatDate(folderName),
+                photos,
+                text: journalEntry
+            });
+        });
+
+        res.json(entries);
     });
 });
 
-// Path to store the journal entry
-const journalFilePath = path.join(__dirname, 'journal.json');
-
-// Route to save the journal entry
+// Route to save the journal entry for a specific day
 app.post('/journal-entry', (req, res) => {
-    const { entry } = req.body;
-    fs.writeFile(journalFilePath, JSON.stringify({ entry }), err => {
+    const { date, text } = req.body;
+    const folderName = parseDate(date);
+    const journalFilePath = path.join(photoBasePath, folderName, 'journal.json');
+
+    fs.writeFile(journalFilePath, JSON.stringify({ entry: text }), err => {
         if (err) {
             console.error('Failed to save journal entry', err);
             return res.status(500).json({ error: 'Failed to save journal entry' });
@@ -63,15 +68,18 @@ app.post('/journal-entry', (req, res) => {
     });
 });
 
-// Route to load the journal entry
-app.get('/journal-entry', (req, res) => {
-    if (fs.existsSync(journalFilePath)) {
-        const data = JSON.parse(fs.readFileSync(journalFilePath, 'utf-8'));
-        res.json(data);
-    } else {
-        res.json({ entry: '' });
-    }
-});
+// Utility functions to format and parse dates
+function formatDate(folderName) {
+    const day = folderName.slice(0, 2);
+    const month = folderName.slice(2, 4);
+    const year = folderName.slice(4);
+    return `${year}-${month}-${day}`;
+}
+
+function parseDate(date) {
+    const [year, month, day] = date.split('-');
+    return `${day}${month}${year}`;
+}
 
 // Run the downloadPhotos.js script when the server starts
 exec('node downloadPhotos.js', (err, stdout, stderr) => {
