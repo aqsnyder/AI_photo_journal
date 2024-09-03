@@ -5,9 +5,5 @@ journal_key_app.pem
 
 ############################################ General Information ################################################
 
-### how to ssh into AWS EC2 and pull latest code from github to the docker container ###
-AWS EC2 ssh : "ssh -i "journal_key_app.pem" ec2-user@ec2-your-public-ip.compute.amazonaws.com"
-sudo docker start journal-node-app
-sudo docker exec -it journal-node-app bash
-cd AI_photo_journal
-git pull origin main
+### how to ssh into AWS EC2 ###
+AWS EC2 ssh : ssh -i journal_key_app.pem" ec2-user@ec2-18-119-101-202.us-east-2.compute.amazonaws.com
