@@ -1,0 +1,6 @@
+########################################## General Information ###############################################
+
+### how to ssh into AWS EC2 ###
+AWS EC2 ssh :                   ssh -i "journal_key_app.pem" ec2-user@ec2-18-119-101-202.us-east-2.compute.amazonaws.com
+start the docker container :    sudo docker start journal-node-app
+enter the docker container :    sudo docker exec -it journal-node-app bash
