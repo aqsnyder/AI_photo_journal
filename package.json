@@ -1,0 +1,9 @@
+{
+    "name": "ai_photo_journal_root",
+    "version": "1.0.0",
+    "scripts": {
+      "start": "cd backend && npm install && npm start"
+    },
+    "dependencies": {}
+  }
+  
