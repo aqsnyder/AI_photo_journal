@@ -1,4 +1,4 @@
-require('dotenv').config();  // Load environment variables from .env file
+require('dotenv').config({ path: require('path').resolve(__dirname, '.env') });
 const fs = require('fs');
 const path = require('path');
 const axios = require('axios');
@@ -11,7 +11,7 @@ const CREDENTIALS_PATH = path.join(__dirname, process.env.CREDENTIALS_PATH || 'c
 const TOKEN_PATH = path.join(__dirname, process.env.TOKEN_PATH || 'token.json');
 const SCOPES = process.env.SCOPES ? process.env.SCOPES.split(',') : ['https://www.googleapis.com/auth/photoslibrary.readonly'];
 const PORT = process.env.PORT || 8080;
-const DOWNLOAD_DIR_BASE = process.env.DOWNLOAD_DIR_BASE || 'C:/Users/Aaron/OneDrive/Pictures/journal_photos';
+const DOWNLOAD_DIR_BASE = path.join(__dirname, 'photos');
 
 async function authorize() {
     const credentials = JSON.parse(fs.readFileSync(CREDENTIALS_PATH, 'utf-8'));

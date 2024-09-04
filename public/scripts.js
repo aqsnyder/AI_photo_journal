@@ -1,61 +1,53 @@
 document.addEventListener('DOMContentLoaded', () => {
     console.log("scripts.js is loaded");
-    const journalEntriesContainer = document.getElementById('journal-entries');
+    
+    const album = document.getElementById('photo-album');
+    const journalForm = document.getElementById('journal-form');
+    const journalEntry = document.getElementById('journal-entry');
 
-    // Fetch the list of available journal entries
-    fetch('/journal-entries')
+    // Fetch the photos from the server
+    fetch('/photos')
         .then(response => response.json())
-        .then(entries => {
-            console.log('Fetched journal entries:', entries);
+        .then(photoUrls => {
+            console.log('Fetched photo URLs:', photoUrls);
+            if (photoUrls.length === 0) {
+                console.log('No photos found');
+            }
 
-            // Append each journal entry with its photos to the DOM
-            entries.forEach(entry => {
-                const entrySection = document.createElement('section');
-                entrySection.classList.add('journal-entry-section');
-
-                const dateHeading = document.createElement('h2');
-                dateHeading.textContent = entry.date;
-                entrySection.appendChild(dateHeading);
-
-                const album = document.createElement('div');
-                album.classList.add('photo-album');
-
-                entry.photos.forEach(photoUrl => {
-                    const img = document.createElement('img');
-                    img.src = photoUrl;
-                    img.alt = 'Photo';
-                    album.appendChild(img);
-                });
-
-                const textarea = document.createElement('textarea');
-                textarea.value = entry.text || '';
-                textarea.placeholder = 'Write about your day...';
-
-                const saveButton = document.createElement('button');
-                saveButton.textContent = 'Save';
-                saveButton.addEventListener('click', () => {
-                    const updatedEntry = textarea.value;
-
-                    fetch('/journal-entry', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({ date: entry.date, text: updatedEntry })
-                    })
-                    .then(response => response.json())
-                    .then(data => {
-                        console.log('Journal entry saved:', data);
-                    })
-                    .catch(error => console.error('Error saving journal entry:', error));
-                });
-
-                entrySection.appendChild(album);
-                entrySection.appendChild(textarea);
-                entrySection.appendChild(saveButton);
-
-                journalEntriesContainer.appendChild(entrySection);
+            // Append each photo as an img element to the album
+            photoUrls.forEach(url => {
+                const img = document.createElement('img');
+                img.src = url;
+                img.alt = 'Photo';
+                album.appendChild(img);
             });
         })
-        .catch(error => console.error('Error fetching journal entries:', error));
+        .catch(error => console.error('Error fetching photos:', error));
+
+    // Fetch the saved journal entry
+    fetch('/journal-entry')
+        .then(response => response.json())
+        .then(data => {
+            journalEntry.value = data.entry || '';
+        })
+        .catch(error => console.error('Error loading journal entry:', error));
+
+    // Handle form submission
+    journalForm.addEventListener('submit', (event) => {
+        event.preventDefault();
+        const entry = journalEntry.value;
+
+        fetch('/journal-entry', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ entry })
+        })
+        .then(response => response.json())
+        .then(data => {
+            console.log('Journal entry saved:', data);
+        })
+        .catch(error => console.error('Error saving journal entry:', error));
+    });
 });
