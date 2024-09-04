@@ -1,52 +1,50 @@
 document.addEventListener('DOMContentLoaded', () => {
     console.log("scripts.js is loaded");
-    
     const album = document.getElementById('photo-album');
     const journalForm = document.getElementById('journal-form');
     const journalEntry = document.getElementById('journal-entry');
 
-    // Fetch the photos from the server
-    fetch('/photos')
+    // Fetch the photos and journal entries from the Heroku backend
+    fetch('https://aiphotojournal.herokuapp.com/journal-entries')
         .then(response => response.json())
-        .then(photoUrls => {
-            console.log('Fetched photo URLs:', photoUrls);
-            if (photoUrls.length === 0) {
-                console.log('No photos found');
-            }
+        .then(entries => {
+            // Loop through entries and add photos and journal text to the DOM
+            entries.forEach(entry => {
+                // For each entry, create a section for the day
+                const section = document.createElement('section');
+                section.innerHTML = `<h2>${entry.date}</h2><p>${entry.text}</p>`;
 
-            // Append each photo as an img element to the album
-            photoUrls.forEach(url => {
-                const img = document.createElement('img');
-                img.src = url;
-                img.alt = 'Photo';
-                album.appendChild(img);
+                // Create a photo album for each entry
+                const photoAlbum = document.createElement('div');
+                entry.photos.forEach(photoUrl => {
+                    const img = document.createElement('img');
+                    img.src = photoUrl;
+                    photoAlbum.appendChild(img);
+                });
+
+                section.appendChild(photoAlbum);
+                album.appendChild(section);
             });
         })
-        .catch(error => console.error('Error fetching photos:', error));
+        .catch(error => console.error('Error fetching journal entries:', error));
 
-    // Fetch the saved journal entry
-    fetch('/journal-entry')
-        .then(response => response.json())
-        .then(data => {
-            journalEntry.value = data.entry || '';
-        })
-        .catch(error => console.error('Error loading journal entry:', error));
-
-    // Handle form submission
+    // Handle form submission to save a new journal entry
     journalForm.addEventListener('submit', (event) => {
         event.preventDefault();
-        const entry = journalEntry.value;
+        const entryText = journalEntry.value;
+        const today = new Date().toISOString().split('T')[0]; // Get current date in YYYY-MM-DD
 
-        fetch('/journal-entry', {
+        fetch('https://your-app-name.herokuapp.com/journal-entry', {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json'
+                'Content-Type': 'application/json',
             },
-            body: JSON.stringify({ entry })
+            body: JSON.stringify({ date: today, text: entryText }),
         })
         .then(response => response.json())
         .then(data => {
             console.log('Journal entry saved:', data);
+            // Optionally refresh or give feedback to the user
         })
         .catch(error => console.error('Error saving journal entry:', error));
     });
