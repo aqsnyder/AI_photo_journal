@@ -5,7 +5,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const journalEntry = document.getElementById('journal-entry');
 
     // Fetch the photos and journal entries from the Heroku backend
-    fetch('https://aiphotojournal.herokuapp.com/journal-entries')
+    fetch('https://aiphotojournal-e7c0ce8be0d6.herokuapp.com/journal-entries')
         .then(response => response.json())
         .then(entries => {
             // Loop through entries and add photos and journal text to the DOM
@@ -34,7 +34,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const entryText = journalEntry.value;
         const today = new Date().toISOString().split('T')[0]; // Get current date in YYYY-MM-DD
 
-        fetch('https://your-app-name.herokuapp.com/journal-entry', {
+        fetch('https://aiphotojournal-e7c0ce8be0d6.herokuapp.com/journal-entry', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
