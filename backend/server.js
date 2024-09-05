@@ -104,7 +104,7 @@ app.get('/journal-entry', (req, res) => {
     });
 });
 
-// Run the downloadPhotos.js script when the server starts (adjust path here too)
+// Run the downloadPhotos.js script when the server starts (adjust path here)
 exec('node backend/downloadPhotos.js', (err, stdout, stderr) => {
     if (err) {
         console.error(`Error running downloadPhotos.js: ${err}`);
