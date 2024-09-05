@@ -11,7 +11,7 @@ const PORT = process.env.PORT || 8080;
 app.use(bodyParser.json());
 
 // Serve static files from the "public" directory
-app.use(express.static('public'));
+app.use(express.static(path.join(__dirname, '../public')));
 
 // Serve the photos directory
 const photoBasePath = process.env.DOWNLOAD_DIR_BASE || path.join(__dirname, 'photos');
@@ -19,7 +19,7 @@ app.use('/photos', express.static(photoBasePath));
 
 // Route to serve the index.html file
 app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+    res.sendFile(path.join(__dirname, '../public', 'index.html'));
 });
 
 // Route to get the list of photo URLs
@@ -74,7 +74,7 @@ app.get('/journal-entry', (req, res) => {
 });
 
 // Run the downloadPhotos.js script when the server starts
-exec('node ./backend/downloadPhotos.js', (err, stdout, stderr) => {
+exec('node downloadPhotos.js', (err, stdout, stderr) => {
     if (err) {
         console.error(`Error running downloadPhotos.js: ${err}`);
         return;
