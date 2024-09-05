@@ -5,13 +5,46 @@ const { exec } = require('child_process');
 const bodyParser = require('body-parser');
 require('dotenv').config(); // Load environment variables from .env file
 
+const { Pool } = require('pg'); // Import PostgreSQL pool
 const app = express();
 const PORT = process.env.PORT || 8080;
+
+// PostgreSQL pool configuration
+const pool = new Pool({
+    connectionString: process.env.DATABASE_URL,
+    ssl: {
+        rejectUnauthorized: false
+    }
+});
+
+// Test the PostgreSQL database connection
+pool.connect((err, client, release) => {
+    if (err) {
+        return console.error('Error acquiring client', err.stack);
+    }
+    console.log('Connected to the database');
+    release();
+});
+
+// Create the journal_entries table if it doesn't exist
+pool.query(`
+    CREATE TABLE IF NOT EXISTS journal_entries (
+        id SERIAL PRIMARY KEY,
+        entry TEXT NOT NULL,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+    )
+`, (err, res) => {
+    if (err) {
+        console.error('Error creating table', err);
+    } else {
+        console.log('Table created or already exists');
+    }
+});
 
 app.use(bodyParser.json());
 
 // Serve static files from the "public" directory
-app.use(express.static(path.join(__dirname, '../public')));
+app.use(express.static('public'));
 
 // Serve the photos directory
 const photoBasePath = process.env.DOWNLOAD_DIR_BASE || path.join(__dirname, 'photos');
@@ -19,7 +52,7 @@ app.use('/photos', express.static(photoBasePath));
 
 // Route to serve the index.html file
 app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, '../public', 'index.html'));
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
 // Route to get the list of photo URLs
@@ -48,33 +81,35 @@ app.get('/photos', (req, res) => {
     });
 });
 
-// Path to store the journal entry
-const journalFilePath = path.join(__dirname, 'journal.json');
-
-// Route to save the journal entry
+// Route to save a journal entry to the PostgreSQL database
 app.post('/journal-entry', (req, res) => {
     const { entry } = req.body;
-    fs.writeFile(journalFilePath, JSON.stringify({ entry }), err => {
+
+    // Insert the journal entry into the database
+    pool.query('INSERT INTO journal_entries (entry) VALUES ($1) RETURNING id', [entry], (err, result) => {
         if (err) {
-            console.error('Failed to save journal entry', err);
+            console.error('Error saving journal entry', err);
             return res.status(500).json({ error: 'Failed to save journal entry' });
         }
-        res.json({ message: 'Journal entry saved' });
+
+        res.json({ message: 'Journal entry saved', id: result.rows[0].id });
     });
 });
 
-// Route to load the journal entry
+// Route to retrieve all journal entries from the PostgreSQL database
 app.get('/journal-entry', (req, res) => {
-    if (fs.existsSync(journalFilePath)) {
-        const data = JSON.parse(fs.readFileSync(journalFilePath, 'utf-8'));
-        res.json(data);
-    } else {
-        res.json({ entry: '' });
-    }
+    pool.query('SELECT * FROM journal_entries ORDER BY created_at DESC', (err, result) => {
+        if (err) {
+            console.error('Error retrieving journal entries', err);
+            return res.status(500).json({ error: 'Failed to retrieve journal entries' });
+        }
+
+        res.json(result.rows);
+    });
 });
 
 // Run the downloadPhotos.js script when the server starts
-exec('node downloadPhotos.js', (err, stdout, stderr) => {
+exec('node ./backend/downloadPhotos.js', (err, stdout, stderr) => {
     if (err) {
         console.error(`Error running downloadPhotos.js: ${err}`);
         return;
