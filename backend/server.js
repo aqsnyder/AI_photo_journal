@@ -43,12 +43,8 @@ pool.query(`
 
 app.use(bodyParser.json());
 
-// Serve static files from the "public" directory
+// Serve static files from the "public" directory (adjust the path)
 app.use(express.static(path.join(__dirname, 'public')));
-
-// Serve the photos directory
-const photoBasePath = process.env.DOWNLOAD_DIR_BASE || path.join(__dirname, 'photos');
-app.use('/photos', express.static(photoBasePath));
 
 // Route to serve the index.html file
 app.get('/', (req, res) => {
@@ -59,7 +55,7 @@ app.get('/', (req, res) => {
 app.get('/photos', (req, res) => {
     const today = new Date();
     const folderName = `${String(today.getDate()).padStart(2, '0')}${String(today.getMonth() + 1).padStart(2, '0')}${today.getFullYear()}`;
-    const photoDir = path.join(photoBasePath, folderName);
+    const photoDir = path.join(__dirname, 'photos', folderName);
 
     console.log(`Looking for photos in directory: ${photoDir}`);
 
@@ -108,7 +104,7 @@ app.get('/journal-entry', (req, res) => {
     });
 });
 
-// Run the downloadPhotos.js script when the server starts
+// Run the downloadPhotos.js script when the server starts (fix the path here too)
 exec('node downloadPhotos.js', (err, stdout, stderr) => {
     if (err) {
         console.error(`Error running downloadPhotos.js: ${err}`);
