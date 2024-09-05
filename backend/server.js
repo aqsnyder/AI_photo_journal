@@ -46,10 +46,11 @@ app.use(bodyParser.json());
 // Serve static files from the "public" directory located at the root level
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Route to serve the index.html file from the root "public" directory
+// Correct path to index.html
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
+
 
 // Route to get the list of photo URLs
 app.get('/photos', (req, res) => {
