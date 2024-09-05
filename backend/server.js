@@ -44,19 +44,18 @@ pool.query(`
 app.use(bodyParser.json());
 
 // Serve static files from the "public" directory located at the root level
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(path.join(__dirname, '..', 'public')));
 
 // Correct path to index.html
 app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+    res.sendFile(path.join(__dirname, '..', 'public', 'index.html'));
 });
-
 
 // Route to get the list of photo URLs
 app.get('/photos', (req, res) => {
     const today = new Date();
     const folderName = `${String(today.getDate()).padStart(2, '0')}${String(today.getMonth() + 1).padStart(2, '0')}${today.getFullYear()}`;
-    const photoDir = path.join(__dirname, 'backend', 'photos', folderName);
+    const photoDir = path.join(__dirname, 'photos', folderName);
 
     console.log(`Looking for photos in directory: ${photoDir}`);
 
@@ -106,14 +105,13 @@ app.get('/journal-entry', (req, res) => {
 });
 
 // Run the downloadPhotos.js script when the server starts
-exec('node downloadPhotos.js', { cwd: path.join(__dirname, 'backend') }, (err, stdout, stderr) => {
+exec('node downloadPhotos.js', { cwd: __dirname }, (err, stdout, stderr) => {
     if (err) {
         console.error(`Error running downloadPhotos.js: ${err}`);
         return;
     }
     console.log(stdout);
 });
-
 
 app.listen(PORT, () => {
     console.log(`Server is running on http://localhost:${PORT}`);
