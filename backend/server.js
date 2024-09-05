@@ -105,14 +105,15 @@ app.get('/journal-entry', (req, res) => {
     });
 });
 
-// Run the downloadPhotos.js script when the server starts (adjust path here)
-exec('node backend/downloadPhotos.js', (err, stdout, stderr) => {
+// Run the downloadPhotos.js script when the server starts
+exec('node downloadPhotos.js', { cwd: path.join(__dirname, 'backend') }, (err, stdout, stderr) => {
     if (err) {
         console.error(`Error running downloadPhotos.js: ${err}`);
         return;
     }
     console.log(stdout);
 });
+
 
 app.listen(PORT, () => {
     console.log(`Server is running on http://localhost:${PORT}`);
