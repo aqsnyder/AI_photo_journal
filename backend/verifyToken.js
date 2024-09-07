@@ -16,7 +16,7 @@ admin.initializeApp({
     })
 });
 
-// Middleware to verify Firebase ID tokens
+// Middleware to verify the Firebase ID token
 const verifyToken = (req, res, next) => {
     const idToken = req.headers.authorization ? req.headers.authorization.split('Bearer ')[1] : null;
 
@@ -36,3 +36,5 @@ const verifyToken = (req, res, next) => {
 };
 
 module.exports = verifyToken;
+
+// change for push 
