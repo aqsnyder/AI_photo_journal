@@ -5,6 +5,11 @@ const { exec } = require('child_process');
 const bodyParser = require('body-parser');
 require('dotenv').config(); // Load environment variables from .env file
 
+console.log("FIREBASE_PROJECT_ID:", process.env.FIREBASE_PROJECT_ID);
+console.log("FIREBASE_PRIVATE_KEY_ID:", process.env.FIREBASE_PRIVATE_KEY_ID);
+console.log("FIREBASE_CLIENT_EMAIL:", process.env.FIREBASE_CLIENT_EMAIL);
+
+
 const { Pool } = require('pg'); // Import PostgreSQL pool
 const admin = require('firebase-admin'); // Import Firebase Admin SDK
 
