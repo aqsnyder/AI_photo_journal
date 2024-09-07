@@ -6,6 +6,24 @@ const bodyParser = require('body-parser');
 require('dotenv').config(); // Load environment variables from .env file
 
 const { Pool } = require('pg'); // Import PostgreSQL pool
+const admin = require('firebase-admin'); // Import Firebase Admin SDK
+
+// Initialize Firebase Admin with your service account
+admin.initializeApp({
+    credential: admin.credential.cert({
+        "type": "service_account",
+        "project_id": "YOUR_PROJECT_ID",
+        "private_key_id": "YOUR_PRIVATE_KEY_ID",
+        "private_key": process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n'), // Ensure key formatting
+        "client_email": "firebase-adminsdk-abc@YOUR_PROJECT_ID.iam.gserviceaccount.com",
+        "client_id": "YOUR_CLIENT_ID",
+        "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+        "token_uri": "https://oauth2.googleapis.com/token",
+        "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+        "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/firebase-adminsdk-abc@YOUR_PROJECT_ID.iam.gserviceaccount.com"
+    })
+});
+
 const app = express();
 const PORT = process.env.PORT || 8080;
 
@@ -43,6 +61,22 @@ pool.query(`
 
 app.use(bodyParser.json());
 
+// Middleware to verify Firebase ID token
+const verifyToken = async (req, res, next) => {
+    const token = req.headers.authorization?.split('Bearer ')[1];
+    if (!token) {
+        return res.status(401).json({ message: 'Unauthorized, token required' });
+    }
+
+    try {
+        const decodedToken = await admin.auth().verifyIdToken(token);
+        req.user = decodedToken;
+        next();
+    } catch (error) {
+        return res.status(401).json({ message: 'Invalid token' });
+    }
+};
+
 // Serve static files from the "public" directory located at the root level
 app.use(express.static(path.join(__dirname, '..', 'public')));
 
@@ -52,7 +86,7 @@ app.get('/', (req, res) => {
 });
 
 // Route to get the list of photo URLs
-app.get('/photos', (req, res) => {
+app.get('/photos', verifyToken, (req, res) => {
     const today = new Date();
     const folderName = `${String(today.getDate()).padStart(2, '0')}${String(today.getMonth() + 1).padStart(2, '0')}${today.getFullYear()}`;
     const photoDir = path.join(__dirname, 'photos', folderName);
@@ -77,8 +111,8 @@ app.get('/photos', (req, res) => {
     });
 });
 
-// Route to save a journal entry to the PostgreSQL database
-app.post('/journal-entry', (req, res) => {
+// Route to save a journal entry to the PostgreSQL database (Protected)
+app.post('/journal-entry', verifyToken, (req, res) => {
     const { entry } = req.body;
 
     // Insert the journal entry into the database
@@ -92,8 +126,8 @@ app.post('/journal-entry', (req, res) => {
     });
 });
 
-// Route to retrieve all journal entries from the PostgreSQL database
-app.get('/journal-entry', (req, res) => {
+// Route to retrieve all journal entries from the PostgreSQL database (Protected)
+app.get('/journal-entry', verifyToken, (req, res) => {
     pool.query('SELECT * FROM journal_entries ORDER BY created_at DESC', (err, result) => {
         if (err) {
             console.error('Error retrieving journal entries', err);

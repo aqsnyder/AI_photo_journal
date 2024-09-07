@@ -42,7 +42,7 @@ PORT=8080
 
 ### Start the server:
 
-npm star
+npm start
 
 ### Access the app locally:
 
@@ -68,7 +68,7 @@ To deploy your own instance on Vercel:
 
 ### Future Additions
 
-The AI Photo Journal is just getting started! Here’s a roadmap for exciting features planned for future versions:
+The AI Photo Journal is just getting started! Here's a roadmap for exciting features planned for future versions:
 
 #### 1. **Firebase Authentication**
 
