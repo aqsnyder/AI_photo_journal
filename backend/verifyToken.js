@@ -1,40 +1,38 @@
-const admin = require("firebase-admin");
-const dotenv = require('dotenv');
-dotenv.config();
+const admin = require('firebase-admin');
 
-// Initialize Firebase Admin SDK
+// Initialize Firebase Admin SDK with the provided credentials
 admin.initializeApp({
-  credential: admin.credential.cert({
-    type: "service_account",
-    project_id: process.env.FIREBASE_PROJECT_ID,
-    private_key_id: process.env.FIREBASE_PRIVATE_KEY_ID,
-    private_key: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n'),
-    client_email: process.env.FIREBASE_CLIENT_EMAIL,
-    client_id: process.env.FIREBASE_CLIENT_ID,
-    auth_uri: "https://accounts.google.com/o/oauth2/auth",
-    token_uri: "https://oauth2.googleapis.com/token",
-    auth_provider_x509_cert_url: "https://www.googleapis.com/oauth2/v1/certs",
-    client_x509_cert_url: process.env.FIREBASE_CLIENT_CERT_URL
-  }),
-  databaseURL: process.env.FIREBASE_DATABASE_URL,
+    credential: admin.credential.cert({
+        "type": "service_account",
+        "project_id": "ai-photo-journal-44018",
+        "private_key_id": "271496ca4e6b8f9823012949058df9ac06b1dd9e",
+        "private_key": process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n'),
+        "client_email": "firebase-adminsdk-dxjst@ai-photo-journal-44018.iam.gserviceaccount.com",
+        "client_id": "114270701341158485058",
+        "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+        "token_uri": "https://oauth2.googleapis.com/token",
+        "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+        "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/firebase-adminsdk-dxjst%40ai-photo-journal-44018.iam.gserviceaccount.com"
+    })
 });
 
-// Middleware to verify Firebase ID Token
-const verifyToken = async (req, res, next) => {
-  const idToken = req.headers.authorization?.split('Bearer ')[1];
+// Middleware to verify Firebase ID tokens
+const verifyToken = (req, res, next) => {
+    const idToken = req.headers.authorization ? req.headers.authorization.split('Bearer ')[1] : null;
 
-  if (!idToken) {
-    return res.status(401).json({ message: "Authorization token missing" });
-  }
+    if (!idToken) {
+        return res.status(401).json({ message: 'Unauthorized, missing token.' });
+    }
 
-  try {
-    const decodedToken = await admin.auth().verifyIdToken(idToken);
-    req.user = decodedToken;
-    next(); // Token is valid, proceed with the request
-  } catch (error) {
-    console.error("Error verifying Firebase ID token:", error);
-    return res.status(403).json({ message: "Unauthorized" });
-  }
+    admin.auth().verifyIdToken(idToken)
+        .then((decodedToken) => {
+            req.user = decodedToken;
+            next();
+        })
+        .catch((error) => {
+            console.error('Error verifying Firebase token:', error);
+            res.status(401).json({ message: 'Unauthorized, invalid token.' });
+        });
 };
 
 module.exports = verifyToken;
